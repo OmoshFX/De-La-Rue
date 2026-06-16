@@ -69,17 +69,20 @@ class DerivBotClient {
   private setupMessageRouter() {
     this.ws!.onmessage = (event: MessageEvent) => {
       const data = JSON.parse(event.data);
+      console.log('[BOT MSG]', JSON.stringify(data).slice(0, 200));
       // Ticks go to the tick handler
       if ('tick' in data) {
         this.tickHandler?.(data);
         return;
       }
-      // Skip tick subscription confirmation (has subscription but no useful data)
+      // Skip tick subscription confirmation
       if ('subscription' in data && 'echo_req' in data && 'ticks' in data.echo_req) {
+        console.log('[BOT] Skipping tick subscription confirmation');
         return;
       }
-      // Everything else goes to the queue (balance, buy, statement, error etc)
+      // Everything else goes to the queue
       const resolver = this.messageQueue.shift();
+      console.log('[BOT] Queue resolver found:', !!resolver, 'queue size after:', this.messageQueue.length);
       if (resolver) resolver(data);
     };
   }
