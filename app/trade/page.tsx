@@ -9,7 +9,7 @@ import { Header } from '@/components/custom/header';
 import { ThemeToggle } from '@/components/custom/theme-toggle';
 import { Footer } from '@/components/custom/footer';
 import Link from 'next/link';
-import { getAuthInfo } from '@deriv/core';
+import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -96,7 +96,7 @@ class DerivBotClient {
     } = config;
 
     try {
-      this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+      this.ws = new WebSocket(api_token);
 
       await new Promise<void>((resolve, reject) => {
         this.ws!.onopen = () => resolve();
@@ -105,11 +105,7 @@ class DerivBotClient {
 
       this.emit({ type: 'status', status: 'connecting' });
 
-      // Authorize with token
-      const authResp: any = await this.sendAndReceive({ authorize: api_token });
-      if (authResp.error) {
-        throw new Error(`Auth failed: ${authResp.error.message}`);
-      }
+      
 
       // Get balance
       const balResp: any = await this.sendAndReceive({ balance: 1, subscribe: 0 });
@@ -363,8 +359,8 @@ export default function TradePage() {
     const account = accounts.find(a => a.account_id === selectedAccountId) ?? activeAccount;
     if (!account) return null;
     try {
-      const authInfo = getAuthInfo();
-      return authInfo?.access_token ?? null;
+      const wsUrl = await getWebSocketOTP(account.account_id, getAuthInfo()!, process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '');
+      return wsUrl;
     } catch {
       return null;
     }
