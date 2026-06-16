@@ -156,7 +156,7 @@ class DerivBotClient {
         };
 
         if (mode === 'OVER_UNDER') {
-          tradeMsg.parameters.barrier = barrier.toString();
+          tradeMsg.parameters.barrier = barrier;
         }
 
         const resp: any = await this.sendAndReceive(tradeMsg);
