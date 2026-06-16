@@ -64,16 +64,30 @@ class DerivBotClient {
     this.onMessage(msg);
   }
 
+  private messageQueue: ((data: any) => void)[] = [];
+
+  private setupMessageRouter() {
+    this.ws!.onmessage = (event: MessageEvent) => {
+      const data = JSON.parse(event.data);
+      // Ticks go to the tick handler, everything else to the queue
+      if ('tick' in data) {
+        this.tickHandler?.(data);
+        return;
+      }
+      // Skip pure subscription confirmations
+      if ('subscription' in data && !('balance' in data) && !('buy' in data)) {
+        return;
+      }
+      const resolver = this.messageQueue.shift();
+      if (resolver) resolver(data);
+    };
+  }
+
+  private tickHandler: ((data: any) => void) | null = null;
+
   private async sendAndReceive(msg: object): Promise<object> {
     return new Promise((resolve) => {
-      const handler = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        if (!('tick' in data) && !('subscription' in data)) {
-          this.ws?.removeEventListener('message', handler);
-          resolve(data);
-        }
-      };
-      this.ws?.addEventListener('message', handler);
+      this.messageQueue.push(resolve);
       this.ws?.send(JSON.stringify(msg));
     });
   }
@@ -105,7 +119,8 @@ class DerivBotClient {
 
       this.emit({ type: 'status', status: 'connecting' });
 
-      
+      // Setup message router
+      this.setupMessageRouter();
 
       // Get balance
       const balResp: any = await this.sendAndReceive({ balance: 1, subscribe: 0 });
@@ -182,11 +197,8 @@ class DerivBotClient {
 
       // Main tick loop
       await new Promise<void>((resolve) => {
-        this.ws!.onmessage = async (event) => {
+        this.tickHandler = async (data: any) => {
           if (!this.running) { resolve(); return; }
-
-          const data = JSON.parse(event.data);
-          if (!('tick' in data)) return;
 
           const quote = data.tick.quote;
           const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
@@ -254,6 +266,7 @@ class DerivBotClient {
         this.ws!.onclose = () => resolve();
         this.ws!.onerror = () => { this.emit({ type: 'error', message: 'WebSocket error' }); resolve(); };
       });
+      this.tickHandler = null;
 
     } catch (err: any) {
       this.emit({ type: 'error', message: err.message });
