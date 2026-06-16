@@ -9,6 +9,7 @@ import { Header } from '@/components/custom/header';
 import { ThemeToggle } from '@/components/custom/theme-toggle';
 import { Footer } from '@/components/custom/footer';
 import Link from 'next/link';
+import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -95,7 +96,7 @@ class DerivBotClient {
     } = config;
 
     try {
-      this.ws = new WebSocket(DERIV_WS_URL);
+      this.ws = new WebSocket(api_token);
 
       await new Promise<void>((resolve, reject) => {
         this.ws!.onopen = () => resolve();
@@ -103,10 +104,6 @@ class DerivBotClient {
       });
 
       this.emit({ type: 'status', status: 'connecting' });
-
-      // Authorize
-      const authResp: any = await this.sendAndReceive({ authorize: api_token });
-      if ('error' in authResp) throw new Error(`Auth failed: ${authResp.error.message}`);
 
       // Get balance
       const balResp: any = await this.sendAndReceive({ balance: 1, subscribe: 0 });
@@ -356,19 +353,19 @@ export default function TradePage() {
     }
   }, [addLog]);
 
-  const getApiToken = useCallback(() => {
+  const getApiToken = useCallback(async () => {
     const account = accounts.find(a => a.account_id === selectedAccountId) ?? activeAccount;
-    // The token is stored in localStorage under the account - use the WS OTP approach
-    // We get the token from the stored deriv accounts
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('deriv_accounts') : null;
-    if (!stored) return null;
-    const accts: any[] = JSON.parse(stored);
-    const match = accts.find((a: any) => a.account_id === (account?.account_id));
-    return match?.token ?? null;
+    if (!account) return null;
+    try {
+      const wsUrl = await getWebSocketOTP(account.account_id, getAuthInfo()!, process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '');
+      return wsUrl;
+    } catch {
+      return null;
+    }
   }, [accounts, activeAccount, selectedAccountId]);
 
   const startBot = useCallback(async () => {
-    const token = getApiToken();
+    const token = await getApiToken();
     if (!token) {
       addLog('Could not retrieve API token. Please log in again.', 'error');
       return;
