@@ -140,7 +140,7 @@ class DerivBotClient {
           : tradeType;
 
         const tradeMsg: any = {
-          buy: 1,
+          buy: '1',
           price: tradeStake,
           parameters: {
             amount: tradeStake,
