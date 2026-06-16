@@ -119,7 +119,7 @@ class DerivBotClient {
       if (mode === 'EVEN_ODD') {
         contractTypes = ['DIGITEVEN', 'DIGITODD'];
       } else {
-        contractTypes = [`DIGITOVER`, `DIGITUNDER`];
+        contractTypes = [`DIGITOVER ${barrier}`, `DIGITUNDER ${barrier}`];
       }
 
       let tradeTypeIndex = 0;
@@ -137,9 +137,7 @@ class DerivBotClient {
 
       const placeTrade = async (tradeType: string, tradeStake: number) => {
         // For OVER/UNDER we need the barrier
-        const contractType = mode === 'OVER_UNDER'
-          ? (tradeType === 'DIGITOVER' ? 'DIGITOVER' : 'DIGITUNDER')
-          : tradeType;
+        const contractType = tradeType;
 
         const tradeMsg: any = {
           buy: 1,
@@ -155,9 +153,7 @@ class DerivBotClient {
           },
         };
 
-        if (mode === 'OVER_UNDER') {
-          tradeMsg.parameters.barrier = barrier;
-        }
+        
 
         const resp: any = await this.sendAndReceive(tradeMsg);
         if ('buy' in resp) {
