@@ -401,6 +401,7 @@ export default function TradePage() {
     setDigitHistory([]);
     setLastDigit(null);
     addLog('Starting bot...', 'info');
+    console.log('[TOKEN]', token);
 
     bot.start({ api_token: token, symbol, mode, barrier, stake, take_profit: takeProfit, stop_loss: stopLoss });
   }, [getApiToken, accounts, activeAccount, selectedAccountId, handleBotMessage, symbol, mode, barrier, stake, takeProfit, stopLoss, addLog]);
