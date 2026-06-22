@@ -138,7 +138,7 @@ class DerivBotClient {
       if (mode === 'EVEN_ODD') {
         contractTypes = ['DIGITEVEN', 'DIGITODD'];
       } else {
-        contractTypes = [`DIGITOVER ${barrier}`, `DIGITUNDER ${barrier}`];
+        contractTypes = [`DIGITOVER`, `DIGITUNDER`];
       }
 
       let tradeTypeIndex = 0;
@@ -165,6 +165,7 @@ class DerivBotClient {
           duration: 1,
           duration_unit: 't',
           underlying_symbol: symbol,
+          ...(mode === 'OVER_UNDER' ? { barrier: String(barrier) } : {}),
         });
 
         if (proposalResp.error) {
