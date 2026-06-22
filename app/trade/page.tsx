@@ -315,7 +315,11 @@ export default function TradePage() {
 
   // ── Config state ──
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [apiToken, setApiToken] = useState<string>(() => localStorage.getItem('deriv_api_token') ?? '');
+  const [apiToken, setApiToken] = useState<string>('');
+
+  useEffect(() => {
+    setApiToken(localStorage.getItem('deriv_api_token') ?? '');
+  }, []);
   const [symbol, setSymbol] = useState('R_100');
   const [mode, setMode] = useState('EVEN_ODD');
   const [barrier, setBarrier] = useState(5);
@@ -376,6 +380,7 @@ export default function TradePage() {
   }, [addLog]);
 
   const getApiToken = useCallback(async () => {
+    if (typeof window === 'undefined') return null;
     const token = localStorage.getItem('deriv_api_token');
     if (!token) return null;
     return token;
