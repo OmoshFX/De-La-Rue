@@ -164,7 +164,7 @@ class DerivBotClient {
           currency,
           duration: 1,
           duration_unit: 't',
-          symbol,
+          underlying_symbol: symbol,
         });
 
         if (proposalResp.error) {
