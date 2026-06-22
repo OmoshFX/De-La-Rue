@@ -114,7 +114,7 @@ class DerivBotClient {
     } = config;
 
     try {
-      this.ws = new WebSocket('wss://ws.derivws.com/websockets/v3?app_id=1089');
+      this.ws = new WebSocket(api_token);
 
       await new Promise<void>((resolve, reject) => {
         this.ws!.onopen = () => resolve();
@@ -125,12 +125,6 @@ class DerivBotClient {
 
       // Setup message router
       this.setupMessageRouter();
-
-      // Authorize
-      const authResp: any = await this.sendAndReceive({ authorize: api_token });
-      if (authResp.error) {
-        throw new Error(`Auth failed: ${authResp.error.message}`);
-      }
 
       // Get balance
       const balResp: any = await this.sendAndReceive({ balance: 1, subscribe: 0 });
@@ -161,30 +155,37 @@ class DerivBotClient {
       this.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
 
       const placeTrade = async (tradeType: string, tradeStake: number) => {
-        // For OVER/UNDER we need the barrier
-        const contractType = tradeType;
+        // Step 1: Get proposal
+        const proposalResp: any = await this.sendAndReceive({
+          proposal: 1,
+          amount: tradeStake,
+          basis: 'stake',
+          contract_type: tradeType,
+          currency,
+          duration: 1,
+          duration_unit: 't',
+          symbol,
+        });
 
-        const tradeMsg: any = {
-          buy: 1,
+        if (proposalResp.error) {
+          return { contractId: null, error: proposalResp.error.message ?? 'Proposal failed' };
+        }
+
+        const proposalId = proposalResp.proposal?.id;
+        if (!proposalId) {
+          return { contractId: null, error: 'No proposal ID received' };
+        }
+
+        // Step 2: Buy using proposal ID
+        const buyResp: any = await this.sendAndReceive({
+          buy: proposalId,
           price: tradeStake,
-          parameters: {
-            amount: tradeStake,
-            basis: 'stake',
-            contract_type: contractType,
-            currency,
-            duration: 1,
-            duration_unit: 't',
-            symbol,
-          },
-        };
+        });
 
-        
-
-        const resp: any = await this.sendAndReceive(tradeMsg);
-        if ('buy' in resp) {
-          return { contractId: resp.buy.contract_id, error: null };
+        if ('buy' in buyResp) {
+          return { contractId: buyResp.buy.contract_id, error: null };
         } else {
-          return { contractId: null, error: resp.error?.message ?? 'Unknown error' };
+          return { contractId: null, error: buyResp.error?.message ?? 'Unknown error' };
         }
       };
 
@@ -380,11 +381,15 @@ export default function TradePage() {
   }, [addLog]);
 
   const getApiToken = useCallback(async () => {
-    if (typeof window === 'undefined') return null;
-    const token = localStorage.getItem('deriv_api_token');
-    if (!token) return null;
-    return token;
-  }, []);
+    const account = accounts.find(a => a.account_id === selectedAccountId) ?? activeAccount;
+    if (!account) return null;
+    try {
+      const wsUrl = await getWebSocketOTP(account.account_id, getAuthInfo()!, process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '');
+      return wsUrl;
+    } catch {
+      return null;
+    }
+  }, [accounts, activeAccount, selectedAccountId]);
 
   const startBot = useCallback(async () => {
     const token = await getApiToken();
