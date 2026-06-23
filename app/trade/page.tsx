@@ -607,23 +607,8 @@ export default function TradePage() {
               />
             </div>
 
-            {/* Buttons */}
-            <div className="flex flex-col gap-2 mt-auto">
-              <button
-                onClick={startBot}
-                disabled={isRunning}
-                className="w-full py-3 text-sm font-mono tracking-widest uppercase rounded border border-emerald-500 text-emerald-400 hover:bg-emerald-400/10 hover:shadow-[0_0_20px_rgba(52,211,153,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ▶ START BOT
-              </button>
-              <button
-                onClick={stopBot}
-                disabled={!isRunning}
-                className="w-full py-3 text-sm font-mono tracking-widest uppercase rounded border border-red-500 text-red-400 hover:bg-red-400/10 hover:shadow-[0_0_20px_rgba(255,51,85,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ■ STOP BOT
-              </button>
-            </div>
+            {/* Buttons placeholder to maintain layout spacing */}
+            <div className="h-[100px]" />
 
             {/* Martingale info */}
             <div className="text-xs font-mono text-muted-foreground leading-relaxed pt-3 border-t border-border">
@@ -718,9 +703,27 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* Fixed footer */}
-      <div className="fixed bottom-0 left-0 right-0 py-2 text-center bg-background/80 backdrop-blur-sm">
-        <Footer />
+      {/* Fixed bottom bar with buttons + footer */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border">
+        <div className="max-w-7xl mx-auto px-3 py-2 flex items-center gap-3">
+          <button
+            onClick={startBot}
+            disabled={isRunning}
+            className="flex-1 py-2.5 text-sm font-mono tracking-widest uppercase rounded border border-emerald-500 text-emerald-400 hover:bg-emerald-400/10 hover:shadow-[0_0_20px_rgba(52,211,153,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ▶ START BOT
+          </button>
+          <button
+            onClick={stopBot}
+            disabled={!isRunning}
+            className="flex-1 py-2.5 text-sm font-mono tracking-widest uppercase rounded border border-red-500 text-red-400 hover:bg-red-400/10 hover:shadow-[0_0_20px_rgba(255,51,85,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ■ STOP BOT
+          </button>
+          <div className="text-center">
+            <Footer />
+          </div>
+        </div>
       </div>
     </main>
   );
