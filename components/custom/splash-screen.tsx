@@ -19,6 +19,7 @@ interface SplashScreenProps {
 
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [progress, setProgress] = useState(0);
+  const onCompleteRef = useRef(onComplete);
   const [lines, setLines] = useState<string[]>(() => Array.from({ length: 12 }, generateLine));
   const [dots, setDots] = useState([true, true, true, true, false, false, false, false]);
   const [fadeOut, setFadeOut] = useState(false);
@@ -27,7 +28,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   // Progress counter
   useEffect(() => {
     const start = Date.now();
-    const duration = 4000; // 4 seconds to reach 100%
+    const duration = 6000; // 6 seconds to reach 100%
 
     intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - start;
@@ -36,14 +37,13 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
       if (pct >= 100) {
         clearInterval(intervalRef.current!);
-        // Fade out then call onComplete
         setTimeout(() => setFadeOut(true), 300);
-        setTimeout(() => onComplete(), 1000);
+        setTimeout(() => onCompleteRef.current(), 1000);
       }
     }, 30);
 
     return () => clearInterval(intervalRef.current!);
-  }, [onComplete]);
+  }, []);
 
   // Scramble text lines
   useEffect(() => {
@@ -85,7 +85,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             boxShadow: '0 0 60px 20px rgba(0,220,200,0.35), 0 0 120px 40px rgba(0,180,200,0.15)',
           }}
         />
-        {/* Orbiting rings */}
         <div
           className="absolute inset-0 rounded-full border"
           style={{
@@ -172,8 +171,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
       <style>{`
         @keyframes spin {
-          from { transform: rotate(0deg) scale(var(--scale, 1.8)); }
-          to { transform: rotate(360deg) scale(var(--scale, 1.8)); }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>
