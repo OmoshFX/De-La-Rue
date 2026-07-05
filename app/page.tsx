@@ -6,6 +6,7 @@ import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { useLogoSrc } from '@/components/custom/logo-src-provider';
 import { DigitsView } from '../components/digits-view';
 import { SplashScreen } from '@/components/custom/splash-screen';
+import { DigitAnalysis } from '@/components/custom/digit-analysis';
 
 export default function DigitsPage() {
   const [showSplash, setShowSplash] = useState(true);
@@ -56,6 +57,7 @@ export default function DigitsPage() {
         buyError={trading.buyError}
         clearBuyResult={trading.clearBuyResult}
       />
+      <DigitAnalysis />
     </>
   );
 }
