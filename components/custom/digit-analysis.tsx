@@ -13,7 +13,7 @@ const SYMBOLS = [
 const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 interface SymbolData {
-  history: boolean[]; // true = even, false = odd
+  history: boolean[];
 }
 
 export function DigitAnalysis() {
@@ -29,7 +29,6 @@ export function DigitAnalysis() {
     wsRef.current = ws;
 
     ws.onopen = () => {
-      // Subscribe to all symbols
       SYMBOLS.forEach(s => {
         ws.send(JSON.stringify({ ticks: s.value, subscribe: 1 }));
       });
@@ -80,7 +79,6 @@ export function DigitAnalysis() {
             E = Even (green) · O = Odd (red)
           </p>
         </div>
-        {/* Count input */}
         <div className="flex items-center gap-2">
           <label className="text-xs font-mono text-muted-foreground uppercase tracking-widest">
             Last
@@ -119,7 +117,6 @@ export function DigitAnalysis() {
               className={`grid items-center px-4 py-3 ${idx % 2 === 0 ? 'bg-background' : 'bg-card'}`}
               style={{ gridTemplateColumns: '140px 48px 1fr' }}
             >
-              {/* Symbol name */}
               <span className="text-xs font-mono text-foreground">{sym.label}</span>
 
               {/* Latest digit */}
@@ -130,9 +127,9 @@ export function DigitAnalysis() {
                   <span
                     className="text-sm font-mono font-bold w-7 h-7 flex items-center justify-center rounded"
                     style={{
-                      color: latest ? '#34d399' : '#f87171',
-                      background: latest ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
-                      border: `1px solid ${latest ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
+                      color: '#fff',
+                      background: latest ? '#16a34a' : '#dc2626',
+                      border: `1px solid ${latest ? '#15803d' : '#b91c1c'}`,
                     }}
                   >
                     {latest ? 'E' : 'O'}
@@ -150,9 +147,9 @@ export function DigitAnalysis() {
                       key={i}
                       className="text-[10px] font-mono font-bold w-5 h-5 flex items-center justify-center rounded"
                       style={{
-                        color: isEven ? '#34d399' : '#f87171',
-                        background: isEven ? 'rgba(52,211,153,0.08)' : 'rgba(248,113,113,0.08)',
-                        opacity: i === 0 ? 1 : Math.max(0.3, 1 - i * (0.7 / count)),
+                        color: '#fff',
+                        background: isEven ? '#16a34a' : '#dc2626',
+                        opacity: i === 0 ? 1 : Math.max(0.4, 1 - i * (0.6 / count)),
                       }}
                     >
                       {isEven ? 'E' : 'O'}
