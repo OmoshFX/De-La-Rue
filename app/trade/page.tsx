@@ -11,8 +11,6 @@ import { Footer } from '@/components/custom/footer';
 import Link from 'next/link';
 import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
 
-// ─── Types ───────────────────────────────────────────────────────────────────
-
 type BotStatus = 'idle' | 'connecting' | 'running' | 'stopped';
 
 interface LogEntry {
@@ -35,8 +33,6 @@ interface DigitHistoryItem {
   isEven: boolean;
 }
 
-// ─── Constants ───────────────────────────────────────────────────────────────
-
 const DERIV_WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 const SYMBOLS = [
@@ -48,8 +44,6 @@ const SYMBOLS = [
   { value: '1HZ100V', label: 'Volatility 100 (1s)' },
   { value: '1HZ10V', label: 'Volatility 10 (1s)' },
 ];
-
-// ─── Bot Logic (runs in-browser via Deriv WS) ────────────────────────────────
 
 class DerivBotClient {
   private ws: WebSocket | null = null;
@@ -70,19 +64,14 @@ class DerivBotClient {
     this.ws!.onmessage = (event: MessageEvent) => {
       const data = JSON.parse(event.data);
       console.log('[BOT MSG]', JSON.stringify(data).slice(0, 200));
-      // Ticks go to the tick handler
       if ('tick' in data) {
         this.tickHandler?.(data);
         return;
       }
-      // Skip tick subscription confirmation
       if ('subscription' in data && 'echo_req' in data && 'ticks' in data.echo_req) {
-        console.log('[BOT] Skipping tick subscription confirmation');
         return;
       }
-      // Everything else goes to the queue
       const resolver = this.messageQueue.shift();
-      console.log('[BOT] Queue resolver found:', !!resolver, 'queue size after:', this.messageQueue.length);
       if (resolver) resolver(data);
     };
   }
@@ -122,23 +111,19 @@ class DerivBotClient {
       });
 
       this.emit({ type: 'status', status: 'connecting' });
-
-      // Setup message router
       this.setupMessageRouter();
 
-      // Get balance
       const balResp: any = await this.sendAndReceive({ balance: 1, subscribe: 0 });
       const balance = balResp.balance.balance;
       const currency = balResp.balance.currency;
 
       this.emit({ type: 'status', status: 'running', balance, currency });
 
-      // Determine contract types
       let contractTypes: string[];
       if (mode === 'EVEN_ODD') {
         contractTypes = ['DIGITEVEN', 'DIGITODD'];
       } else {
-        contractTypes = [`DIGITOVER`, `DIGITUNDER`];
+        contractTypes = ['DIGITOVER', 'DIGITUNDER'];
       }
 
       let tradeTypeIndex = 0;
@@ -151,11 +136,9 @@ class DerivBotClient {
       let pendingTrade = false;
       let pendingContractId: string | null = null;
 
-      // Subscribe to ticks
       this.ws.send(JSON.stringify({ ticks: symbol, subscribe: 1 }));
 
       const placeTrade = async (tradeType: string, tradeStake: number) => {
-        // Step 1: Get proposal
         const proposalResp: any = await this.sendAndReceive({
           proposal: 1,
           amount: tradeStake,
@@ -177,7 +160,6 @@ class DerivBotClient {
           return { contractId: null, error: 'No proposal ID received' };
         }
 
-        // Step 2: Buy using proposal ID
         const buyResp: any = await this.sendAndReceive({
           buy: proposalId,
           price: tradeStake,
@@ -207,14 +189,12 @@ class DerivBotClient {
         };
       };
 
-      // Main tick loop
       await new Promise<void>((resolve) => {
         this.tickHandler = async (data: any) => {
           if (!this.running) { resolve(); return; }
 
           const quote = data.tick.quote;
           const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
-
           this.emit({ type: 'tick', quote, last_digit: lastDigit });
 
           if (firstTick) {
@@ -234,7 +214,7 @@ class DerivBotClient {
 
           if (pendingTrade) {
             const { profit, newBalance } = await getLastProfit();
-            if (profit === null) return; // Wait another tick
+            if (profit === null) return;
 
             const won = profit > 0;
             totalProfit = Math.round((totalProfit + profit) * 100) / 100;
@@ -253,7 +233,6 @@ class DerivBotClient {
               this.running = false; resolve(); return;
             }
 
-            // Martingale
             if (won) {
               stake = initialStake;
             } else {
@@ -262,7 +241,6 @@ class DerivBotClient {
             }
           }
 
-          // Place next trade
           const tradeType = contractTypes[tradeTypeIndex];
           const { contractId, error } = await placeTrade(tradeType, stake);
           if (error) {
@@ -295,8 +273,6 @@ class DerivBotClient {
   }
 }
 
-// ─── Page Component ───────────────────────────────────────────────────────────
-
 export default function TradePage() {
   const logoSrc = useLogoSrc();
   const router = useRouter();
@@ -304,7 +280,6 @@ export default function TradePage() {
   const { authState, accounts, activeAccount, login, signUp, logout, switchAccount } = auth;
   const trading = useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated: !!auth.wsUrl, onAuthWSFailed: logout });
 
-  // ── Bot state ──
   const [botStatus, setBotStatus] = useState<BotStatus>('idle');
   const [stats, setStats] = useState<BotStats>({ balance: '—', currency: '', pnl: 0, trades: 0, wins: 0 });
   const [log, setLog] = useState<LogEntry[]>([]);
@@ -315,13 +290,13 @@ export default function TradePage() {
   const botRef = useRef<DerivBotClient | null>(null);
   const logIdRef = useRef(0);
 
-  // ── Config state ──
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [apiToken, setApiToken] = useState<string>('');
 
   useEffect(() => {
     setApiToken(localStorage.getItem('deriv_api_token') ?? '');
   }, []);
+
   const [symbol, setSymbol] = useState('R_100');
   const [mode, setMode] = useState('EVEN_ODD');
   const [barrier, setBarrier] = useState(5);
@@ -329,14 +304,12 @@ export default function TradePage() {
   const [takeProfit, setTakeProfit] = useState(1.0);
   const [stopLoss, setStopLoss] = useState(4.0);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (authState === 'unauthenticated' || authState === 'error') {
       router.replace('/');
     }
   }, [authState, router]);
 
-  // Default selected account to active account
   useEffect(() => {
     if (activeAccount && !selectedAccountId) {
       setSelectedAccountId(activeAccount.account_id);
@@ -414,7 +387,6 @@ export default function TradePage() {
     setDigitHistory([]);
     setLastDigit(null);
     addLog('Starting bot...', 'info');
-    console.log('[TOKEN]', token);
 
     bot.start({ api_token: token, symbol, mode, barrier, stake, take_profit: takeProfit, stop_loss: stopLoss });
   }, [getApiToken, accounts, activeAccount, selectedAccountId, handleBotMessage, symbol, mode, barrier, stake, takeProfit, stopLoss, addLog]);
@@ -424,7 +396,6 @@ export default function TradePage() {
     addLog('Stop requested...', 'info');
   }, [addLog]);
 
-  // ── Loading state ──
   if (authState !== 'authenticated') {
     return (
       <main className="flex flex-col bg-background items-center justify-center min-h-dvh">
@@ -459,37 +430,51 @@ export default function TradePage() {
         actions={<ThemeToggle />}
       />
 
-      {/* Spacer below fixed header */}
       <div className="h-[76px] shrink-0" />
 
-      <div className="flex-1 w-full max-w-7xl mx-auto px-3 py-4 sm:px-4 sm:py-6 pb-16">
-        {/* Back + page title row */}
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-            <span className="text-base leading-none">←</span>
+      <div className="flex-1 w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 pb-20">
+
+        {/* Back + status row */}
+        <div className="flex items-center justify-between mb-3">
+          <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+            <span>←</span>
             <span>Back</span>
           </Link>
-          <div className="flex items-center gap-3">
-            {/* Account type badge */}
-            <span className={`text-xs font-mono tracking-widest px-3 py-1 rounded border ${isLive ? 'text-red-400 border-red-400 bg-red-400/10' : 'text-cyan-400 border-cyan-400 bg-cyan-400/10'}`}>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] sm:text-xs font-mono tracking-widest px-2 py-1 rounded border ${isLive ? 'text-red-400 border-red-400 bg-red-400/10' : 'text-cyan-400 border-cyan-400 bg-cyan-400/10'}`}>
               {isLive ? 'LIVE ⚠' : 'DEMO'}
             </span>
-            {/* Bot status badge */}
-            <span className={`text-xs font-mono tracking-widest px-3 py-1 rounded border transition-all ${statusConfig.color}`}>
+            <span className={`text-[10px] sm:text-xs font-mono tracking-widest px-2 py-1 rounded border transition-all ${statusConfig.color}`}>
               {statusConfig.label}
             </span>
           </div>
         </div>
 
-        {/* ── Main Grid ── */}
+        {/* Stats bar — 3 cols on mobile, 5 on desktop */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-px rounded-lg overflow-hidden border border-border bg-border mb-3">
+          {[
+            { label: 'Balance', value: stats.balance ? `${stats.balance} ${stats.currency}`.trim() : '—' },
+            { label: 'P&L', value: stats.trades > 0 ? (stats.pnl >= 0 ? '+' : '') + stats.pnl.toFixed(2) : '—', color: stats.trades > 0 ? (stats.pnl > 0 ? 'text-emerald-400' : stats.pnl < 0 ? 'text-red-400' : '') : '' },
+            { label: 'Trades', value: String(stats.trades) },
+            { label: 'Wins', value: String(stats.wins) },
+            { label: 'Win %', value: winRate !== null ? `${winRate}%` : '—' },
+          ].map((stat, i) => (
+            <div key={stat.label} className={`bg-card px-2 py-3 text-center ${i >= 3 ? 'hidden sm:block' : ''}`}>
+              <p className="text-[9px] sm:text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">{stat.label}</p>
+              <p className={`text-sm sm:text-xl font-mono text-cyan-400 ${stat.color ?? ''}`}>{stat.value}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Main grid — stacked on mobile, side by side on desktop */}
         <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-3">
 
-          {/* ── LEFT: Config Panel ── */}
-          <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-5">
+          {/* LEFT: Config Panel */}
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
 
             {/* API Token */}
             <div>
-              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">API Token</p>
+              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">API Token</p>
               <input
                 type="password"
                 placeholder="Paste your Deriv API token"
@@ -511,7 +496,7 @@ export default function TradePage() {
 
             {/* Account selector */}
             <div>
-              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">Account</p>
+              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">Account</p>
               <div className="flex gap-1">
                 {accounts.map(acc => (
                   <button
@@ -532,121 +517,111 @@ export default function TradePage() {
               </div>
               {isLive && (
                 <div className="mt-2 p-2 rounded border border-red-400/40 bg-red-400/5 text-red-400 text-xs font-mono leading-relaxed">
-                  ⚠ REAL MONEY MODE<br />
-                  Trades use your real balance.
+                  ⚠ REAL MONEY MODE — Trades use your real balance.
                 </div>
               )}
               {selectedAccount && (
-                <p className="mt-2 text-xs text-muted-foreground font-mono">
+                <p className="mt-1 text-xs text-muted-foreground font-mono truncate">
                   {selectedAccount.account_id} · {parseFloat(selectedAccount.balance).toFixed(2)} {selectedAccount.currency}
                 </p>
               )}
             </div>
 
-            {/* Symbol */}
+            {/* Trade Settings — 2 col grid on mobile */}
             <div>
-              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">Trade Settings</p>
-              <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Symbol</label>
-              <select
-                value={symbol}
-                onChange={e => setSymbol(e.target.value)}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              >
-                {SYMBOLS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-
-              <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mt-3 mb-1">Mode</label>
-              <select
-                value={mode}
-                onChange={e => setMode(e.target.value)}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              >
-                <option value="EVEN_ODD">Even / Odd</option>
-                <option value="OVER_UNDER">Over / Under</option>
-              </select>
-
-              {mode === 'OVER_UNDER' && (
-                <>
-                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mt-3 mb-1">Barrier (0–9)</label>
+              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">Trade Settings</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+                <div>
+                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Symbol</label>
+                  <select
+                    value={symbol}
+                    onChange={e => setSymbol(e.target.value)}
+                    disabled={isRunning}
+                    className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                  >
+                    {SYMBOLS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Mode</label>
+                  <select
+                    value={mode}
+                    onChange={e => setMode(e.target.value)}
+                    disabled={isRunning}
+                    className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                  >
+                    <option value="EVEN_ODD">Even / Odd</option>
+                    <option value="OVER_UNDER">Over / Under</option>
+                  </select>
+                </div>
+                {mode === 'OVER_UNDER' && (
+                  <div>
+                    <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Barrier (0–9)</label>
+                    <input
+                      type="number" min={0} max={9} value={barrier}
+                      onChange={e => setBarrier(parseInt(e.target.value))}
+                      disabled={isRunning}
+                      className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                    />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Stake (USD)</label>
                   <input
-                    type="number" min={0} max={9} value={barrier}
-                    onChange={e => setBarrier(parseInt(e.target.value))}
+                    type="number" min={0.35} step={0.01} value={stake}
+                    onChange={e => setStake(parseFloat(e.target.value))}
                     disabled={isRunning}
                     className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
                   />
-                </>
-              )}
-
-              <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mt-3 mb-1">Stake (USD)</label>
-              <input
-                type="number" min={0.35} step={0.01} value={stake}
-                onChange={e => setStake(parseFloat(e.target.value))}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              />
+                </div>
+              </div>
             </div>
 
-            {/* Risk management */}
+            {/* Risk Management — 2 col on mobile */}
             <div>
-              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">Risk Management</p>
-              <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Take Profit (USD)</label>
-              <input
-                type="number" min={0.01} step={0.01} value={takeProfit}
-                onChange={e => setTakeProfit(parseFloat(e.target.value))}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              />
-              <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mt-3 mb-1">Stop Loss (USD)</label>
-              <input
-                type="number" min={0.01} step={0.01} value={stopLoss}
-                onChange={e => setStopLoss(parseFloat(e.target.value))}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              />
+              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">Risk Management</p>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Take Profit</label>
+                  <input
+                    type="number" min={0.01} step={0.01} value={takeProfit}
+                    onChange={e => setTakeProfit(parseFloat(e.target.value))}
+                    disabled={isRunning}
+                    className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-mono tracking-widest text-muted-foreground uppercase mb-1">Stop Loss</label>
+                  <input
+                    type="number" min={0.01} step={0.01} value={stopLoss}
+                    onChange={e => setStopLoss(parseFloat(e.target.value))}
+                    disabled={isRunning}
+                    className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
+                  />
+                </div>
+              </div>
             </div>
 
-            {/* Buttons placeholder to maintain layout spacing */}
-            <div className="h-[100px]" />
+            <div className="h-[60px]" />
 
-            {/* Martingale info */}
             <div className="text-xs font-mono text-muted-foreground leading-relaxed pt-3 border-t border-border">
-              Martingale: 2.1× on loss<br />
-              Type switches on loss<br />
-              Resets to base stake on win
+              Martingale: 2.1× on loss · Type switches on loss · Resets on win
             </div>
           </div>
 
-          {/* ── RIGHT: Stats + Tick + Log ── */}
+          {/* RIGHT: Tick + Log */}
           <div className="flex flex-col gap-3">
 
-            {/* Stats bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-px rounded-lg overflow-hidden border border-border bg-border">
-              {[
-                { label: 'Balance', value: stats.balance ? `${stats.balance} ${stats.currency}`.trim() : '—' },
-                { label: 'Total P&L', value: stats.trades > 0 ? (stats.pnl >= 0 ? '+' : '') + stats.pnl.toFixed(2) : '—', color: stats.trades > 0 ? (stats.pnl > 0 ? 'text-emerald-400' : stats.pnl < 0 ? 'text-red-400' : '') : '' },
-                { label: 'Trades', value: String(stats.trades) },
-                { label: 'Wins', value: String(stats.wins) },
-                { label: 'Win Rate', value: winRate !== null ? `${winRate}%` : '—' },
-              ].map(stat => (
-                <div key={stat.label} className="bg-card px-4 py-4 text-center">
-                  <p className="text-xs font-mono tracking-widest text-muted-foreground uppercase mb-2">{stat.label}</p>
-                  <p className={`text-xl font-mono text-cyan-400 ${stat.color ?? ''}`}>{stat.value}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Tick + Log */}
+            {/* Tick + Log — stacked on mobile, side by side on sm+ */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 flex-1">
 
               {/* Live Tick */}
-              <div className="rounded-lg border border-border bg-card p-5 flex flex-col min-h-[300px]">
-                <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">Live Tick</p>
-                <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <div className="rounded-lg border border-border bg-card p-4 flex flex-col min-h-[220px] sm:min-h-[300px]">
+                <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">Live Tick</p>
+                <div className="flex-1 flex flex-col items-center justify-center gap-2">
                   <div
                     key={pulseKey}
-                    className={`text-8xl font-mono leading-none transition-all animate-[pulse_0.15s_ease] ${
+                    className={`text-6xl sm:text-8xl font-mono leading-none transition-all animate-[pulse_0.15s_ease] ${
                       lastDigit === null ? 'text-muted-foreground' :
                       lastDigit % 2 === 0
                         ? 'text-emerald-400 drop-shadow-[0_0_30px_rgba(52,211,153,0.5)]'
@@ -655,14 +630,13 @@ export default function TradePage() {
                   >
                     {lastDigit ?? '—'}
                   </div>
-                  <p className="text-sm font-mono text-muted-foreground tracking-widest">{lastQuote}</p>
+                  <p className="text-xs sm:text-sm font-mono text-muted-foreground tracking-widest">{lastQuote}</p>
                 </div>
-                {/* Digit history */}
-                <div className="flex flex-wrap gap-1 mt-3">
+                <div className="flex flex-wrap gap-1 mt-2">
                   {digitHistory.map((d, i) => (
                     <div
                       key={i}
-                      className={`w-7 h-7 flex items-center justify-center text-xs font-mono border rounded transition-all ${
+                      className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[10px] sm:text-xs font-mono border rounded transition-all ${
                         i === 0
                           ? 'border-cyan-400 text-cyan-400'
                           : d.isEven
@@ -677,8 +651,8 @@ export default function TradePage() {
               </div>
 
               {/* Trade Log */}
-              <div className="rounded-lg border border-border bg-card p-5 flex flex-col min-h-[300px]">
-                <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-3 pb-2 border-b border-border">Trade Log</p>
+              <div className="rounded-lg border border-border bg-card p-4 flex flex-col min-h-[220px] sm:min-h-[300px]">
+                <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">Trade Log</p>
                 <div className="flex-1 overflow-y-auto flex flex-col gap-1 scrollbar-thin">
                   {log.length === 0 && (
                     <p className="text-xs font-mono text-muted-foreground">No activity yet...</p>
@@ -686,7 +660,7 @@ export default function TradePage() {
                   {log.map(entry => (
                     <div
                       key={entry.id}
-                      className={`text-xs font-mono py-1.5 px-2.5 border-l-2 leading-relaxed ${
+                      className={`text-xs font-mono py-1 px-2 border-l-2 leading-relaxed ${
                         entry.type === 'win'   ? 'border-emerald-400 text-foreground' :
                         entry.type === 'loss'  ? 'border-red-400 text-foreground' :
                         entry.type === 'error' ? 'border-red-400 text-red-400' :
@@ -703,24 +677,24 @@ export default function TradePage() {
         </div>
       </div>
 
-      {/* Fixed bottom bar with buttons + footer */}
-      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border">
-        <div className="max-w-7xl mx-auto px-3 py-2 flex items-center gap-3">
+      {/* Fixed bottom buttons */}
+      <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur-sm border-t border-border z-40">
+        <div className="max-w-7xl mx-auto px-3 py-2 flex items-center gap-2">
           <button
             onClick={startBot}
             disabled={isRunning}
-            className="flex-1 py-2.5 text-sm font-mono tracking-widest uppercase rounded border border-emerald-500 text-emerald-400 hover:bg-emerald-400/10 hover:shadow-[0_0_20px_rgba(52,211,153,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-3 text-sm font-mono tracking-widest uppercase rounded border border-emerald-500 text-emerald-400 hover:bg-emerald-400/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ▶ START BOT
+            ▶ START
           </button>
           <button
             onClick={stopBot}
             disabled={!isRunning}
-            className="flex-1 py-2.5 text-sm font-mono tracking-widest uppercase rounded border border-red-500 text-red-400 hover:bg-red-400/10 hover:shadow-[0_0_20px_rgba(255,51,85,0.2)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex-1 py-3 text-sm font-mono tracking-widest uppercase rounded border border-red-500 text-red-400 hover:bg-red-400/10 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
           >
-            ■ STOP BOT
+            ■ STOP
           </button>
-          <div className="text-center">
+          <div className="hidden sm:block text-center">
             <Footer />
           </div>
         </div>
