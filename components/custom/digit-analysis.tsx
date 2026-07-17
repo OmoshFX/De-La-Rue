@@ -68,7 +68,7 @@ export function DigitAnalysis() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto mt-8 px-3 pb-8">
+    <div className="w-full max-w-5xl mx-auto mt-8 px-3 pb-24">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
