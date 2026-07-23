@@ -10,7 +10,7 @@ const SYMBOLS = [
   { value: 'R_10',  label: 'Volatility 10'  },
 ];
 
-const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
+const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '1089'}`;
 
 interface SymbolData {
   history: boolean[];
@@ -33,9 +33,15 @@ export function DigitAnalysis() {
       wsRef.current = ws;
 
       ws.onopen = () => {
+        console.log('[ANALYSIS] WebSocket connected');
         SYMBOLS.forEach(s => {
           ws.send(JSON.stringify({ ticks: s.value, subscribe: 1 }));
         });
+      };
+
+      ws.onerror = (e) => {
+        console.log('[ANALYSIS] WebSocket error', e);
+        ws.close();
       };
 
       ws.onmessage = (event) => {
