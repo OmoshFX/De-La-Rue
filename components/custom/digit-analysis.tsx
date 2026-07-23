@@ -78,9 +78,11 @@ export function DigitAnalysis() {
       };
     };
 
-    connect();
+    // Wait for page to fully hydrate before connecting
+    const initTimeout = setTimeout(connect, 1000);
 
     return () => {
+      clearTimeout(initTimeout);
       clearTimeout(reconnectTimeout);
       ws?.close();
     };
