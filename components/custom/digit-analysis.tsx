@@ -25,37 +25,54 @@ export function DigitAnalysis() {
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    const ws = new WebSocket(WS_URL);
-    wsRef.current = ws;
+    let reconnectTimeout: NodeJS.Timeout;
+    let ws: WebSocket;
 
-    ws.onopen = () => {
-      SYMBOLS.forEach(s => {
-        ws.send(JSON.stringify({ ticks: s.value, subscribe: 1 }));
-      });
+    const connect = () => {
+      ws = new WebSocket(WS_URL);
+      wsRef.current = ws;
+
+      ws.onopen = () => {
+        SYMBOLS.forEach(s => {
+          ws.send(JSON.stringify({ ticks: s.value, subscribe: 1 }));
+        });
+      };
+
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        if (!('tick' in msg)) return;
+
+        const symbol = msg.tick.symbol;
+        const quote = msg.tick.quote;
+        const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
+        const isEven = lastDigit % 2 === 0;
+
+        setData(prev => {
+          const existing = prev[symbol]?.history ?? [];
+          return {
+            ...prev,
+            [symbol]: {
+              history: [isEven, ...existing].slice(0, 100),
+            },
+          };
+        });
+      };
+
+      ws.onclose = () => {
+        // Reconnect after 2 seconds
+        reconnectTimeout = setTimeout(connect, 2000);
+      };
+
+      ws.onerror = () => {
+        ws.close();
+      };
     };
 
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-      if (!('tick' in msg)) return;
-
-      const symbol = msg.tick.symbol;
-      const quote = msg.tick.quote;
-      const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
-      const isEven = lastDigit % 2 === 0;
-
-      setData(prev => {
-        const existing = prev[symbol]?.history ?? [];
-        return {
-          ...prev,
-          [symbol]: {
-            history: [isEven, ...existing].slice(0, 100),
-          },
-        };
-      });
-    };
+    connect();
 
     return () => {
-      ws.close();
+      clearTimeout(reconnectTimeout);
+      ws?.close();
     };
   }, []);
 
