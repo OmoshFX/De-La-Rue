@@ -19,9 +19,18 @@ interface SymbolData {
 export function DigitAnalysis() {
   const [count, setCount] = useState(10);
   const [inputVal, setInputVal] = useState('10');
-  const [data, setData] = useState<Record<string, SymbolData>>(() =>
-    Object.fromEntries(SYMBOLS.map(s => [s.value, { history: [] }]))
-  );
+  const [data, setData] = useState<Record<string, SymbolData>>({
+    R_100: { history: [] },
+    R_75: { history: [] },
+    R_50: { history: [] },
+    R_25: { history: [] },
+    R_10: { history: [] },
+  });
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
@@ -84,6 +93,8 @@ export function DigitAnalysis() {
       setCount(n);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 px-3 pb-24">
