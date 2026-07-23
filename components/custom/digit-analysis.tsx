@@ -10,7 +10,7 @@ const SYMBOLS = [
   { value: 'R_10',  label: 'Volatility 10'  },
 ];
 
-const WS_URL = `wss://ws.derivws.com/websockets/v3?app_id=${process.env.NEXT_PUBLIC_DERIV_APP_ID ?? '1089'}`;
+const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 interface SymbolData {
   history: boolean[];
@@ -39,11 +39,6 @@ export function DigitAnalysis() {
         });
       };
 
-      ws.onerror = (e) => {
-        console.log('[ANALYSIS] WebSocket error', e);
-        ws.close();
-      };
-
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
         if (!('tick' in msg)) return;
@@ -64,13 +59,13 @@ export function DigitAnalysis() {
         });
       };
 
-      ws.onclose = () => {
-        // Reconnect after 2 seconds
-        reconnectTimeout = setTimeout(connect, 2000);
+      ws.onerror = (e) => {
+        console.log('[ANALYSIS] WebSocket error', e);
+        ws.close();
       };
 
-      ws.onerror = () => {
-        ws.close();
+      ws.onclose = () => {
+        reconnectTimeout = setTimeout(connect, 2000);
       };
     };
 
