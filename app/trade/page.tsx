@@ -10,6 +10,7 @@ import { ThemeToggle } from '@/components/custom/theme-toggle';
 import { Footer } from '@/components/custom/footer';
 import Link from 'next/link';
 import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
+import { getLastDigit } from '@/lib/digit-stats';
 
 type BotStatus = 'idle' | 'connecting' | 'running' | 'stopped';
 
@@ -32,8 +33,6 @@ interface DigitHistoryItem {
   digit: number;
   isEven: boolean;
 }
-
-const DERIV_WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 const SYMBOLS = [
   { value: 'R_100', label: 'Volatility 100' },
@@ -86,7 +85,7 @@ class DerivBotClient {
   }
 
   async start(config: {
-    api_token: string;
+    wsUrl: string;
     symbol: string;
     mode: string;
     barrier: number;
@@ -98,12 +97,12 @@ class DerivBotClient {
     this.running = true;
 
     const {
-      api_token, symbol, mode, barrier,
+      wsUrl, symbol, mode, barrier,
       stake: initialStake, take_profit, stop_loss,
     } = config;
 
     try {
-      this.ws = new WebSocket(api_token);
+      this.ws = new WebSocket(wsUrl);
 
       await new Promise<void>((resolve, reject) => {
         this.ws!.onopen = () => resolve();
@@ -194,7 +193,9 @@ class DerivBotClient {
           if (!this.running) { resolve(); return; }
 
           const quote = data.tick.quote;
-          const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
+          // pip_size matters: JS drops trailing zeros, so 1234.50 stringifies
+          // to "1234.5" and slice(-1) would read the digit as 5 instead of 0.
+          const lastDigit = getLastDigit(quote, data.tick.pip_size ?? 2);
           this.emit({ type: 'tick', quote, last_digit: lastDigit });
 
           if (firstTick) {
@@ -388,7 +389,7 @@ export default function TradePage() {
     setLastDigit(null);
     addLog('Starting bot...', 'info');
 
-    bot.start({ api_token: token, symbol, mode, barrier, stake, take_profit: takeProfit, stop_loss: stopLoss });
+    bot.start({ wsUrl: token, symbol, mode, barrier, stake, take_profit: takeProfit, stop_loss: stopLoss });
   }, [getApiToken, accounts, activeAccount, selectedAccountId, handleBotMessage, symbol, mode, barrier, stake, takeProfit, stopLoss, addLog]);
 
   const stopBot = useCallback(() => {

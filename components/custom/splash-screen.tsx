@@ -20,7 +20,10 @@ interface SplashScreenProps {
 export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [progress, setProgress] = useState(0);
   const onCompleteRef = useRef(onComplete);
-  const [lines, setLines] = useState<string[]>(() => Array.from({ length: 12 }, generateLine));
+  // Must start deterministic: this initializer runs on the server too, and
+  // Math.random() there would not match what the browser generates, which is
+  // what caused the hydration mismatch. Real content is filled in on mount.
+  const [lines, setLines] = useState<string[]>(() => Array.from({ length: 12 }, () => ''));
   const [dots, setDots] = useState([true, true, true, true, false, false, false, false]);
   const [fadeOut, setFadeOut] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -45,8 +48,9 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     return () => clearInterval(intervalRef.current!);
   }, []);
 
-  // Scramble text lines
+  // Scramble text lines — the first fill happens here, after hydration.
   useEffect(() => {
+    setLines(Array.from({ length: 12 }, generateLine));
     const interval = setInterval(() => {
       setLines(prev => prev.map(() => generateLine()));
     }, 80);

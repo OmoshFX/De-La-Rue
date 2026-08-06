@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { DerivWS } from '@deriv/core';
+import { getLastDigit } from '@/lib/digit-stats';
 
 const SYMBOLS = [
   { value: 'R_100', label: 'Volatility 100' },
@@ -9,8 +11,6 @@ const SYMBOLS = [
   { value: 'R_25',  label: 'Volatility 25'  },
   { value: 'R_10',  label: 'Volatility 10'  },
 ];
-
-const WS_URL = 'wss://ws.derivws.com/websockets/v3?app_id=1089';
 
 interface SymbolData {
   history: boolean[];
@@ -31,62 +31,66 @@ export function DigitAnalysis() {
   useEffect(() => {
     setMounted(true);
   }, []);
-  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
-    let reconnectTimeout: NodeJS.Timeout;
-    let ws: WebSocket;
+    if (!mounted) return;
 
-    const connect = () => {
-      ws = new WebSocket(WS_URL);
-      wsRef.current = ws;
+    // Uses the app's own DerivWS client, which reads its endpoint from
+    // packages/core/src/config/urls.ts — so this runs under our registration
+    // rather than the shared public app_id=1089.
+    //
+    // Deliberately a separate instance from DerivWSProvider's socket: the
+    // trading panel on this page uses @deriv/core's useTicks, which fires
+    // `forget_all: 'ticks'` whenever its symbol changes or it unmounts. Sharing
+    // one socket would let that silently kill these five subscriptions.
+    const ws = new DerivWS();
+    let disposed = false;
+    let unsubscribers: Array<() => void> = [];
 
-      ws.onopen = () => {
-        console.log('[ANALYSIS] WebSocket connected');
-        SYMBOLS.forEach(s => {
-          ws.send(JSON.stringify({ ticks: s.value, subscribe: 1 }));
-        });
-      };
+    const handleTick = (raw: Record<string, unknown>) => {
+      const tick = (raw as { tick?: { symbol: string; quote: number; pip_size?: number } }).tick;
+      if (!tick) return;
 
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        if (!('tick' in msg)) return;
+      // pip_size matters: JS drops trailing zeros, so 1234.50 stringifies to
+      // "1234.5" and the old slice(-1) read the digit as 5 instead of 0.
+      const digit = getLastDigit(tick.quote, tick.pip_size ?? 2);
+      const isEven = digit % 2 === 0;
 
-        const symbol = msg.tick.symbol;
-        const quote = msg.tick.quote;
-        const lastDigit = parseInt(String(quote).replace('.', '').slice(-1), 10);
-        const isEven = lastDigit % 2 === 0;
-
-        setData(prev => {
-          const existing = prev[symbol]?.history ?? [];
-          return {
-            ...prev,
-            [symbol]: {
-              history: [isEven, ...existing].slice(0, 100),
-            },
-          };
-        });
-      };
-
-      ws.onerror = (e) => {
-        console.log('[ANALYSIS] WebSocket error', e);
-        ws.close();
-      };
-
-      ws.onclose = () => {
-        reconnectTimeout = setTimeout(connect, 2000);
-      };
+      setData(prev => ({
+        ...prev,
+        [tick.symbol]: {
+          history: [isEven, ...(prev[tick.symbol]?.history ?? [])].slice(0, 100),
+        },
+      }));
     };
 
-    // Wait for page to fully hydrate before connecting
-    const initTimeout = setTimeout(connect, 1000);
+    const subscribeAll = () => {
+      unsubscribers = [];
+      for (const s of SYMBOLS) {
+        ws.subscribe({ ticks: s.value }, handleTick)
+          .then(sub => {
+            if (disposed) sub.unsubscribe();
+            else unsubscribers.push(sub.unsubscribe);
+          })
+          .catch(() => {});
+      }
+    };
+
+    // Fires on the first connect and again after each automatic reconnect,
+    // so streams are restored without the hand-rolled 2s retry loop.
+    const unsubState = ws.onConnectionStateChange(connected => {
+      if (connected && !disposed) subscribeAll();
+    });
+
+    ws.connect().catch(() => {});
 
     return () => {
-      clearTimeout(initTimeout);
-      clearTimeout(reconnectTimeout);
-      ws?.close();
+      disposed = true;
+      unsubState();
+      unsubscribers.forEach(u => u());
+      ws.disconnect();
     };
-  }, []);
+  }, [mounted]);
 
   const handleCountChange = (val: string) => {
     setInputVal(val);
