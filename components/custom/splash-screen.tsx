@@ -31,7 +31,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   // Progress counter
   useEffect(() => {
     const start = Date.now();
-    const duration = 6000; // 6 seconds to reach 100%
+    const duration = 2500; // time to reach 100% — the one number to tune
 
     intervalRef.current = setInterval(() => {
       const elapsed = Date.now() - start;
@@ -40,8 +40,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
       if (pct >= 100) {
         clearInterval(intervalRef.current!);
-        setTimeout(() => setFadeOut(true), 300);
-        setTimeout(() => onCompleteRef.current(), 1000);
+        setTimeout(() => setFadeOut(true), 200);
+        setTimeout(() => onCompleteRef.current(), 700);
       }
     }, 30);
 
@@ -71,7 +71,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
   return (
     <div
-      className={`fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-700 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-50 flex flex-col items-center justify-center transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
       style={{ background: '#020a0a' }}
     >
       {/* Crosshair lines */}
