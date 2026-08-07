@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useCallback } from 'react';
+import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 
 /**
  * Deriv's bot builder, mounted in place.
@@ -14,9 +15,24 @@ import { useRef, useCallback } from 'react';
  */
 export default function BotBuilderPage() {
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const { auth } = useDerivWSContext();
+  const { activeAccount, authState } = auth;
+
+  // The bot resolves its account by reading `active_loginid` from localStorage
+  // once, as it opens its socket:
+  //
+  //   const activeLoginId = localStorage.getItem('active_loginid');
+  //   const targetAccount = accounts.find(a => a.account_id === activeLoginId) ?? accounts[0];
+  //
+  // It never re-reads that key, so switching account in our header would leave
+  // the frame connected as the old one. Keying the iframe on the account id
+  // remounts it on every switch, which makes the bot reconnect and pick up the
+  // new selection. authState is included so logging in or out reloads it too.
+  const frameKey = `${authState}:${activeAccount?.account_id ?? 'anon'}`;
 
   // Same-origin, so the frame's document is reachable. Hiding the bot's own
-  // header avoids a second logo, nav and account switcher stacked under ours.
+  // logo and account row avoids stacking a second one under ours; its page tabs
+  // (Dashboard, Bot Builder, Charts, Tutorials) are left alone.
   const hideDuplicateChrome = useCallback(() => {
     const doc = frameRef.current?.contentDocument;
     if (!doc) return;
@@ -30,6 +46,7 @@ export default function BotBuilderPage() {
 
   return (
     <iframe
+      key={frameKey}
       ref={frameRef}
       src="/bot/preview"
       title="Bot Builder"
