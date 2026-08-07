@@ -12,6 +12,7 @@ import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { useLogoSrc } from '@/components/custom/logo-src-provider';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
+import { ThemeToggle } from '@/components/custom/theme-toggle';
 
 /**
  * Every destination in the app, in the order they appear in the tab strip.
@@ -49,7 +50,8 @@ function AccountSwitcher() {
 
   if (!isAuthenticated || !activeAccount) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
+        <ThemeToggle />
         <Button variant="ghost" size="sm" onClick={() => login()} disabled={isAuthenticating}>
           {isAuthenticating ? 'Logging in...' : 'Log in'}
         </Button>
@@ -61,7 +63,8 @@ function AccountSwitcher() {
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1">
+      <ThemeToggle />
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-muted transition-colors">
@@ -108,11 +111,19 @@ function AccountSwitcher() {
               </button>
             ))}
           </div>
+          <div className="mt-2 border-t pt-2">
+            <button
+              onClick={() => {
+                setOpen(false);
+                logout();
+              }}
+              className="w-full rounded-md px-2 py-2 text-left text-sm text-destructive hover:bg-destructive/10 transition-colors"
+            >
+              Log out
+            </button>
+          </div>
         </PopoverContent>
       </Popover>
-      <Button variant="ghost" size="sm" onClick={() => logout()}>
-        Log out
-      </Button>
     </div>
   );
 }
