@@ -3,12 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
-import { useLogoSrc } from '@/components/custom/logo-src-provider';
 import { useDigitsTrading } from '@/hooks/use-digits-trading';
-import { Header } from '@/components/custom/header';
-import { ThemeToggle } from '@/components/custom/theme-toggle';
-import { Footer } from '@/components/custom/footer';
-import Link from 'next/link';
 import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
 import { getLastDigit } from '@/lib/digit-stats';
 
@@ -275,7 +270,6 @@ class DerivBotClient {
 }
 
 export default function TradePage() {
-  const logoSrc = useLogoSrc();
   const router = useRouter();
   const { ws, isConnected, isExhausted, auth } = useDerivWSContext();
   const { authState, accounts, activeAccount, login, signUp, logout, switchAccount } = auth;
@@ -420,29 +414,11 @@ export default function TradePage() {
   }[botStatus];
 
   return (
-    <main className="flex flex-col bg-background min-h-dvh">
-      <Header
-        authState={authState}
-        accounts={accounts}
-        activeAccount={activeAccount}
-        onLogin={login}
-        onSignUp={signUp}
-        onLogout={logout}
-        onSwitchAccount={switchAccount}
-        logoSrc={logoSrc}
-        actions={<ThemeToggle />}
-      />
-
-      <div className="h-[76px] shrink-0" />
-
+    <main className="flex flex-col">
       <div className="flex-1 w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 pb-20">
 
-        {/* Back + status row */}
-        <div className="flex items-center justify-between mb-3">
-          <Link href="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-            <span>←</span>
-            <span>Back</span>
-          </Link>
+        {/* Status row */}
+        <div className="flex items-center justify-end mb-3">
           <div className="flex items-center gap-2">
             <span className={`text-[10px] sm:text-xs font-mono tracking-widest px-2 py-1 rounded border ${isLive ? 'text-red-400 border-red-400 bg-red-400/10' : 'text-cyan-400 border-cyan-400 bg-cyan-400/10'}`}>
               {isLive ? 'LIVE ⚠' : 'DEMO'}
@@ -675,9 +651,6 @@ export default function TradePage() {
           >
             ■ STOP
           </button>
-          <div className="hidden sm:block text-center">
-            <Footer />
-          </div>
         </div>
       </div>
     </main>

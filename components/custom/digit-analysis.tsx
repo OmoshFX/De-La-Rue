@@ -103,7 +103,7 @@ export function DigitAnalysis() {
   if (!mounted) return null;
 
   return (
-    <div className="w-full max-w-5xl mx-auto mt-8 px-3 pb-24">
+    <div className="w-full max-w-5xl mx-auto px-3 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
