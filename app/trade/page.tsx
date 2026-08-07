@@ -292,10 +292,12 @@ export default function TradePage() {
   const logIdRef = useRef(0);
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [apiToken, setApiToken] = useState<string>('');
 
   useEffect(() => {
-    setApiToken(localStorage.getItem('deriv_api_token') ?? '');
+    // The bot authenticates via OAuth + a one-time WebSocket URL, so a pasted
+    // API token was never read by anything. Clear any value left behind by the
+    // old input so it stops sitting in localStorage where scripts can read it.
+    localStorage.removeItem('deriv_api_token');
   }, []);
 
   const [symbol, setSymbol] = useState('R_100');
@@ -369,7 +371,7 @@ export default function TradePage() {
   const startBot = useCallback(async () => {
     const token = await getApiToken();
     if (!token) {
-      addLog('Please enter your Deriv API token first.', 'error');
+      addLog('Please log in before starting the bot.', 'error');
       return;
     }
 
@@ -472,28 +474,6 @@ export default function TradePage() {
 
           {/* LEFT: Config Panel */}
           <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
-
-            {/* API Token */}
-            <div>
-              <p className="text-xs font-mono tracking-widest text-cyan-500 uppercase mb-2 pb-2 border-b border-border">API Token</p>
-              <input
-                type="password"
-                placeholder="Paste your Deriv API token"
-                value={apiToken}
-                onChange={e => {
-                  setApiToken(e.target.value);
-                  localStorage.setItem('deriv_api_token', e.target.value);
-                }}
-                disabled={isRunning}
-                className="w-full bg-background border border-border rounded px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:border-cyan-500 disabled:opacity-50"
-              />
-              <p className="mt-1 text-xs text-muted-foreground font-mono">
-                Get yours at{' '}
-                <a href="https://app.deriv.com/account/api-token" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">
-                  app.deriv.com/account/api-token
-                </a>
-              </p>
-            </div>
 
             {/* Account selector */}
             <div>
