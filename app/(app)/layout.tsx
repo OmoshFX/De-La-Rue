@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { AppNav } from '@/components/custom/app-nav';
+import { BotFrame } from '@/components/custom/bot-frame';
 import { SplashScreen } from '@/components/custom/splash-screen';
 
 /**
@@ -10,6 +11,10 @@ import { SplashScreen } from '@/components/custom/splash-screen';
  * Next.js keeps this layout mounted while the page below it swaps, so moving
  * between tabs re-renders only the content area — the nav bar never reloads or
  * flashes. That is what makes the tabs feel like panels rather than page loads.
+ *
+ * The bot frame lives here for the same reason: pages that need it render
+ * nothing themselves, and BotFrame stays mounted across navigation so the bot
+ * loads once per session rather than once per visit.
  */
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   // Starts false so a reload, or moving between tabs, does not replay it.
@@ -41,6 +46,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
       <AppNav />
       <main>{children}</main>
+      <BotFrame />
     </div>
   );
 }
