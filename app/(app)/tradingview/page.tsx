@@ -1,12 +1,5 @@
-import { Eye } from 'lucide-react';
-import { ComingSoon } from '@/components/custom/coming-soon';
+import { TradingViewChart } from '@/components/custom/tradingview-chart';
 
 export default function TradingViewPage() {
-  return (
-    <ComingSoon
-      title="TradingView"
-      description="TradingView charts embedded alongside your positions."
-      icon={Eye}
-    />
-  );
+  return <TradingViewChart />;
 }
