@@ -214,14 +214,9 @@ export function TradeControls({
       </div>
 
       {isAuthenticated && (
-        <div className="flex flex-col gap-1">
-          <Button asChild variant="ghost" className="w-full text-sm text-muted-foreground hover:text-foreground">
-            <Link href="/reports">View your positions →</Link>
-          </Button>
-          <Button asChild variant="ghost" className="w-full text-sm text-muted-foreground hover:text-foreground">
-            <Link href="/trade">Run Trade Bot →</Link>
-          </Button>
-        </div>
+        <Button asChild variant="ghost" className="w-full text-sm text-muted-foreground hover:text-foreground">
+          <Link href="/reports">View your positions →</Link>
+        </Button>
       )}
     </div>
   );
