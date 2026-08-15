@@ -1,11 +1,45 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
 import { useDerivWSContext } from '@/components/custom/deriv-ws-provider';
 import { useDigitsTrading } from '@/hooks/use-digits-trading';
 import { getWebSocketOTP, getAuthInfo } from '@deriv/core';
 import { getLastDigit } from '@/lib/digit-stats';
+import { CycleBot } from '@/components/custom/cycle-bot';
+
+/** Switches between the single-symbol bot and the three-stage cycle bot. */
+function ModeSwitch({
+  mode,
+  onChange,
+  disabled,
+}: {
+  mode: 'single' | 'cycle';
+  onChange: (m: 'single' | 'cycle') => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="mb-4 inline-flex rounded-lg border border-border p-1">
+      {([
+        ['single', 'Single symbol'],
+        ['cycle', 'Three-stage cycle'],
+      ] as const).map(([value, label]) => (
+        <button
+          key={value}
+          onClick={() => onChange(value)}
+          disabled={disabled}
+          className={
+            'rounded-md px-3 py-1.5 text-xs font-mono uppercase tracking-widest transition-colors disabled:opacity-40 ' +
+            (mode === value
+              ? 'bg-foreground text-background'
+              : 'text-muted-foreground hover:text-foreground')
+          }
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 type BotStatus = 'idle' | 'connecting' | 'running' | 'stopped';
 
@@ -270,7 +304,6 @@ class DerivBotClient {
 }
 
 export default function TradePage() {
-  const router = useRouter();
   const { ws, isConnected, isExhausted, auth } = useDerivWSContext();
   const { authState, accounts, activeAccount, login, signUp, logout, switchAccount } = auth;
   const trading = useDigitsTrading({ ws, isConnected, isExhausted, isAuthenticated: !!auth.wsUrl, onAuthWSFailed: logout });
@@ -287,6 +320,9 @@ export default function TradePage() {
 
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
 
+  /** Which engine this page shows. 'single' is the original bulk trader. */
+  const [botMode, setBotMode] = useState<'single' | 'cycle'>('single');
+
   useEffect(() => {
     // The bot authenticates via OAuth + a one-time WebSocket URL, so a pasted
     // API token was never read by anything. Clear any value left behind by the
@@ -302,10 +338,13 @@ export default function TradePage() {
   const [stopLoss, setStopLoss] = useState(4.0);
 
   useEffect(() => {
+    // The single-symbol bot needs an account. The cycle bot's paper mode runs
+    // on public tick data, so rather than bouncing a logged-out visitor off
+    // the page, hand them the part that works without logging in.
     if (authState === 'unauthenticated' || authState === 'error') {
-      router.replace('/');
+      setBotMode('cycle');
     }
-  }, [authState, router]);
+  }, [authState]);
 
   useEffect(() => {
     if (activeAccount && !selectedAccountId) {
@@ -393,6 +432,21 @@ export default function TradePage() {
     addLog('Stop requested...', 'info');
   }, [addLog]);
 
+  // The cycle bot is a fully separate engine with its own sockets and state.
+  // It sits above the auth gate because paper mode runs on public tick data
+  // and needs no account; the component blocks live mode when logged out.
+  // Nothing below this line runs in cycle mode.
+  if (botMode === 'cycle') {
+    return (
+      <main className="flex flex-col">
+        <div className="flex-1 w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 pb-20">
+          <ModeSwitch mode={botMode} onChange={setBotMode} disabled={false} />
+          <CycleBot />
+        </div>
+      </main>
+    );
+  }
+
   if (authState !== 'authenticated') {
     return (
       <main className="flex flex-col bg-background items-center justify-center min-h-dvh">
@@ -413,9 +467,13 @@ export default function TradePage() {
     stopped:    { label: 'STOPPED',    color: 'text-red-400 border-red-400' },
   }[botStatus];
 
+  // The cycle bot renders above, before the auth gate.
+
   return (
     <main className="flex flex-col">
       <div className="flex-1 w-full max-w-7xl mx-auto px-2 py-3 sm:px-4 sm:py-6 pb-20">
+
+        <ModeSwitch mode={botMode} onChange={setBotMode} disabled={isRunning} />
 
         {/* Status row */}
         <div className="flex items-center justify-end mb-3">
