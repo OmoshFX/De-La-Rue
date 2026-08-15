@@ -1,12 +1,5 @@
-import { Activity } from 'lucide-react';
-import { ComingSoon } from '@/components/custom/coming-soon';
+import { SignalAnalyzer } from '@/components/custom/signal-analyzer';
 
 export default function SignalAnalyzerPage() {
-  return (
-    <ComingSoon
-      title="Signal Analyzer"
-      description="Scan symbols for setups that match your own rules."
-      icon={Activity}
-    />
-  );
+  return <SignalAnalyzer />;
 }
